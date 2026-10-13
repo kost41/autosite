@@ -1,41 +1,38 @@
-name: Generate Post
+name: Auto Generate Post
 
 on:
   schedule:
-    - cron: '0 */6 * * *'  # каждые 6 часов (поменяй под себя)
-  workflow_dispatch:       # + ручной запуск кнопкой
+    - cron: '0 3 * * *'
+  workflow_dispatch:
 
 permissions:
-  contents: write          # ⚠️ ОБЯЗАТЕЛЬНО — разрешение на запись
+  contents: write
 
 jobs:
-  build:
+  generate:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Install dependencies
-        run: pip install requests
+      - run: pip install requests
 
       - name: Run generator
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         run: python generator.py
 
-      - name: Commit and push changes
+      - name: Commit and push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add .
-          if git diff --staged --quiet; then
-            echo "No changes to commit"
-          else
-            git commit -m "Auto: new post $(date +'%Y-%m-%d %H:%M')"
-            git push
-          fi
+          git diff --cached --quiet || git commit -m "Auto: new post $(date +'%Y-%m-%d %H:%M')"
+          git pull --rebase origin main || true
+          git push origin main
