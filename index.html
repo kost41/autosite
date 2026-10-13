@@ -1,17 +1,50 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AutoSite</title>
-    <link rel="stylesheet" href="assets/style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AutoSite</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;600&family=Roboto+Mono:wght@400;500&display=swap');
+:root{--bg:#050505;--text:#e0e0e0;--accent:#00f0ff;--surface:#111111;--muted:#777777;--font-h:'Oswald',serif;--font-b:'Roboto Mono',sans-serif;}
+*{box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:var(--font-b);margin:0;line-height:1.6;}
+header{padding:4rem 1.5rem 3rem;text-align:center;border-bottom:1px solid var(--surface);}
+h1{font-family:var(--font-h);font-size:clamp(2.2rem,6vw,4rem);margin:0;line-height:1.05;}
+.tagline{color:var(--muted);margin-top:.8rem;font-size:1.1rem;}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1.5rem;padding:2rem 1.5rem 4rem;max-width:1100px;margin:0 auto;}
+.card{background:var(--surface);padding:1.5rem;border-radius:8px;transition:transform .2s,box-shadow .2s;}
+.card:hover{transform:translateY(-3px);box-shadow:0 10px 30px rgba(0,0,0,.2);}
+.card-link{text-decoration:none;color:inherit;display:block;}
+.card h2{font-family:var(--font-h);font-size:1.25rem;margin:0 0 .6rem;color:var(--text);}
+.excerpt{color:var(--muted);margin:0 0 .8rem;font-size:.95rem;line-height:1.5;}
+.card-meta{font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;}
+.promo{grid-column:1/-1;background:transparent;border:2px dashed var(--surface);display:flex;align-items:center;justify-content:center;min-height:140px;}
+footer{text-align:center;padding:2rem;color:var(--muted);font-size:.8rem;border-top:1px solid var(--surface);}
+footer a{color:var(--muted);margin:0 .6rem;text-decoration:none;}
+footer a:hover{color:var(--accent);}
+@media(max-width:600px){.grid{grid-template-columns:1fr;padding:1.5rem 1rem;}header{padding:3rem 1rem 2rem;}}
+</style>
 </head>
 <body>
-    <h1>AutoSite</h1>
-    <p>Последние посты:</p>
-    <ul>
-        <li><a href="2026-10-13-1026-новый-пост.html">2026-10-13-1026-новый-пост</a> — 13.10.2026</li>
+<header>
+<h1>AutoSite</h1>
+<p class="tagline">Практика важнее теории. Всегда.</p>
+</header>
+<main class="grid">
 
-    </ul>
+        <article class="card">
+            <a href="2026-10-13-1102-глобальная-экспансия-из-кофейни-как-продавать-миру-без-аренды-в-дубае.html" class="card-link">
+                <h2>Глобальная экспансия из кофейни: как продавать миру без аренды в Дубае</h2>
+                <p class="excerpt">Еще пять лет назад, чтобы продавать товары за рубеж, нужно было открыть юрлицо, арендовать кабинет и нанять местного бухгалтера. Сегодня это…</p>
+                <span class="card-meta">13 октября 2026 · 10 мин</span>
+            </a>
+        </article>
+        
+</main>
+<footer>
+<a href="about.html">О проекте</a>
+<a href="privacy.html">Конфиденциальность</a>
+</footer>
 </body>
 </html>
