@@ -422,34 +422,34 @@ def create_post():
     existing = [f.stem for f in Path(".").glob("20*.html")]
     if any(today in e for e in existing):
         print(f"Post for {today} already exists. Skip.")
-        return False
+    else:
+        topic = random.choice(TOPICS)
+        print(f"Topic: {topic}")
 
-    topic = random.choice(TOPICS)
-    print(f"Topic: {topic}")
+        data = generate_article(topic)
+        title = data.get("title", "Без названия")
+        excerpt = data.get("excerpt", "")
+        content = data.get("content", "")
+        reading_time = data.get("reading_time", random.randint(5, 12))
 
-    data = generate_article(topic)
-    title = data.get("title", "Без названия")
-    excerpt = data.get("excerpt", "")
-    content = data.get("content", "")
-    reading_time = data.get("reading_time", random.randint(5, 12))
+        slug = slugify(title)
+        date_slug = datetime.now().strftime("%Y-%m-%d-%H%M")
+        filename = f"{date_slug}-{slug}.html"
 
-    slug = slugify(title)
-    date_slug = datetime.now().strftime("%Y-%m-%d-%H%M")
-    filename = f"{date_slug}-{slug}.html"
+        design = random.choice(DESIGN_SYSTEMS)
+        print(f"Design: {design['name']}")
 
-    design = random.choice(DESIGN_SYSTEMS)
-    print(f"Design: {design['name']}")
+        months = ["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"]
+        d = datetime.now()
+        date_ru = f"{d.day} {months[d.month-1]} {d.year}"
 
-    months = ["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"]
-    d = datetime.now()
-    date_ru = f"{d.day} {months[d.month-1]} {d.year}"
+        html = build_post_html(design, title, date_ru, content, reading_time)
 
-    html = build_post_html(design, title, date_ru, content, reading_time)
+        with open(filename, "w", encoding="utf-8") as f:
+            f.write(html)
+        print(f"Created: {filename}")
 
-    with open(filename, "w", encoding="utf-8") as f:
-        f.write(html)
-    print(f"Created: {filename}")
-
+    # Пересобираем index ВСЕГДА, даже если пост пропущен
     rebuild_index()
     return True
 
