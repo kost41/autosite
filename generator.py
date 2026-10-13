@@ -149,7 +149,7 @@ def build_index_html(posts):
         cards.append(
             f'    <a class="card" href="{p["file"]}">\n'
             f'      <h2>{p["title"]}</h2>\n'
-            f'      <p class="excerpt">{p["excerpt"]}</p>\n'
+            f'      <p class="card-excerpt">{p["excerpt"]}</p>\n'
             f'      <div class="card-meta">{p["date"]} · {p["reading_time"]} мин</div>\n'
             f'    </a>'
         )
