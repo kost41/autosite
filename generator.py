@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import os
 import random
 import re
@@ -114,21 +113,18 @@ AD_BLOCKS = [
 
 
 def fetch_available_models():
-    """Запрашивает список моделей Groq и возвращает ID первой подходящей."""
     try:
         r = requests.get(MODELS_URL, headers={"Authorization": f"Bearer {API_KEY}"}, timeout=20)
         r.raise_for_status()
         models = r.json().get("data", [])
         ids = [m["id"] for m in models]
         print(f"Available Groq models: {ids[:10]}... ({len(ids)} total)")
-        # Приоритет: свежие Llama, Qwen, DeepSeek
         preferred_keywords = ["llama-4", "llama-3.3", "llama-3.1", "qwen", "deepseek", "mixtral"]
         for kw in preferred_keywords:
             for mid in ids:
                 if kw in mid.lower():
                     print(f"Auto-selected model: {mid}")
                     return mid
-        # Если ничего не подошло — берём первую с llama
         for mid in ids:
             if "llama" in mid.lower():
                 return mid
@@ -138,11 +134,9 @@ def fetch_available_models():
         return None
 
 
-# Пытаемся определить рабочую модель автоматически
 WORKING_MODEL = fetch_available_models()
 if not WORKING_MODEL:
-    # Если автоопределение не сработало — используем проверенные fallback
-    WORKING_MODEL = "llama-3.3-70b-versatile"  # обновлённая версия 3.1
+    WORKING_MODEL = "llama-3.3-70b-versatile"
     print(f"Fallback model: {WORKING_MODEL}")
 
 
@@ -198,7 +192,6 @@ def slugify(title: str) -> str:
 
 
 def insert_ads(content_html: str, n=2):
-    """Вставляет рекламные блоки между параграфами"""
     parts = re.split(r'(</p>)', content_html)
     if len(parts) < 4:
         return content_html
@@ -218,7 +211,6 @@ def build_post_css(design):
     c = design["colors"]
     h_font, b_font = FONT_PAIRS[design["key"]]
     radius = design["radius"]
-    shadow = design["shadow"]
     extras = design["extras"]
 
     grain = ""
