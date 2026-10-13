@@ -1,0 +1,36 @@
+name: Auto Generate Site
+
+on:
+  schedule:
+    - cron: "0 * * * *"  # Каждый час
+  workflow_dispatch:       # И можно запускать вручную
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          
+      - name: Install dependencies
+        run: pip install requests feedparser python-slugify
+        
+      - name: Generate content
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: python generator.py
+        
+      - name: Commit and push
+        run: |
+          git config user.name "AutoBot"
+          git config user.email "bot@autosite.bot"
+          git add .
+          git diff --quiet && git diff --staged --quiet || git commit -m "auto: new post"
+          git push
