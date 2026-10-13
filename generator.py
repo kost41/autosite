@@ -1,127 +1,178 @@
 import os
-import requests
-import json
+import random
 import re
-from datetime import datetime
+import time
+import json
+from datetime import datetime, timedelta
 from pathlib import Path
 
+import requests
+
 API_KEY = os.environ.get("GROQ_API_KEY")
+if not API_KEY:
+    raise ValueError("GROQ_API_KEY not set")
+
 API_URL = "https://api.groq.com/openai/v1/chat/completions"
 
-def generate_content():
-    if not API_KEY:
-        raise ValueError("GROQ_API_KEY not set")
+# Список моделей на случай если одна не работает
+MODELS = [
+    "qwen/qwen3.6-27b",
+    "openai/gpt-oss-120b",
+]
 
-    headers = {
-        "Authorization": f"Bearer {API_KEY}",
-        "Content-Type": "application/json"
-    }
+TOPICS = [
+    "как выбрать надёжного партнёра для интернет-магазина",
+    "преимущества дропшиппинга в 2025 году",
+    "как начать онлайн-бизнес с нуля",
+    "ошибки начинающих предпринимателей",
+    "автоматизация бизнес-процессов для экономии времени",
+    "где брать трафик на сайт бесплатно",
+    "как увеличить продажи через email-рассылки",
+    "зачем нужен сайт компании и как он помогает в продажах",
+    "как защитить свой бизнес от кибератак",
+    "искусственный интеллект в помощь малому бизнесу",
+    "построение команды удалённых сотрудников",
+    "упаковка услуг: как продавать дороже",
+]
 
-    prompt = (
-        "Напиши пост (400-700 слов) на тему программирования, ИИ или кибербезопасности. "
-        "Используй простой HTML: <p>, <h2>, <ul>, <li>, <strong>, <code>. "
-        "Без <!DOCTYPE>, <html>, <head>, <body>. Только контент для вставки в div. "
-        "Ответь на русском языке."
+def slugify(title: str) -> str:
+    s = title.lower()
+    s = re.sub(r'[^a-zа-яё0-9\s-]', '', s)
+    s = re.sub(r'\s+', '-', s).strip('-')
+    return s[:80]
+
+def generate_content(topic: str) -> str:
+    sys_msg = (
+        "Ты — профессиональный копирайтер. Напиши SEO-оптимизированный пост на русском языке. "
+        "В ответе верни ТОЛЬКО JSON в формате: {\"title\": \"...\", \"content\": \"...\", \"tags\": [\"...\"]}. "
+        "Контент — размеченный HTML (заголовки h2, абзацы p, списки ul/li). Никакого Markdown."
     )
+    usr_msg = f"Напиши пост на тему: «{topic}». Минимум 800 слов."
 
     payload = {
-        "model": "llama-3.1-70b-versatile",
-        "messages": [{"role": "user", "content": prompt}],
+        "model": MODELS[0],
+        "messages": [
+            {"role": "system", "content": sys_msg},
+            {"role": "user", "content": usr_msg},
+        ],
         "temperature": 0.7,
-        "max_tokens": 2000
+        "max_tokens": 4096,
     }
 
-    try:
-        resp = requests.post(API_URL, headers=headers, json=payload, timeout=60)
-        resp.raise_for_status()
-        data = resp.json()
-        return data["choices"][0]["message"]["content"]
-    except Exception as e:
-        print(f"API Error: {e}")
-        return None
+    for model in MODELS:
+        try:
+            payload["model"] = model
+            response = requests.post(API_URL, headers={
+                "Authorization": f"Bearer {API_KEY}",
+                "Content-Type": "application/json"
+            }, json=payload, timeout=120)
+            response.raise_for_status()
+            data = response.json()
+            raw = data["choices"][0]["message"]["content"]
+            match = re.search(r'\{.*\}', raw, re.DOTALL)
+            if not match:
+                print(f"Model {model}: no JSON found in response")
+                continue
+            parsed = json.loads(match.group(0))
+            if parsed.get("content"):
+                print(f"Success with model: {model}")
+                return parsed["content"]
+        except Exception as e:
+            print(f"Model {model} failed: {e}")
+            try:
+                print("Response body:", response.text[:500])
+            except Exception:
+                pass
+            continue
 
-def make_filename(title):
-    clean = re.sub(r'<[^>]+>', '', title)
-    clean = re.sub(r'[^\w\s-]', '', clean).strip().lower()
-    clean = re.sub(r'[\s]+', '-', clean)
-    return clean[:50] or "post"
+    raise RuntimeError("All models failed")
+
+def generate_title_from_content(content: str) -> str:
+    sys_msg = "Придумай короткий цепляющий заголовок для текста (до 60 символов). Верни ТОЛЬКО заголовок, без кавычек."
+    usr_msg = content[:2000]
+
+    for model in MODELS:
+        try:
+            payload = {
+                "model": model,
+                "messages": [
+                    {"role": "system", "content": sys_msg},
+                    {"role": "user", "content": usr_msg},
+                ],
+                "temperature": 0.7,
+                "max_tokens": 60,
+            }
+            response = requests.post(API_URL, headers={
+                "Authorization": f"Bearer {API_KEY}",
+                "Content-Type": "application/json"
+            }, json=payload, timeout=60)
+            response.raise_for_status()
+            data = response.json()
+            title = data["choices"][0]["message"]["content"].strip().strip('"\'')
+            if title:
+                return title
+        except Exception as e:
+            print(f"Title generation with {model} failed: {e}")
+            continue
+
+    return "Новый пост"
 
 def create_post():
-    print("Generating content...")
-    raw = generate_content()
-    if not raw:
+    today = datetime.now().strftime("%Y-%m-%d")
+    existing = [f.stem for f in Path(".").glob("20*.html")]
+    if any(today in e for e in existing):
+        print(f"Post for {today} already exists. Skipping.")
         return False
 
-    # Вытаскиваем заголовок
-    title_match = re.search(r'<h2>(.*?)</h2>', raw, re.IGNORECASE)
-    if title_match:
-        title = title_match.group(1).strip()
-    else:
-        lines = [l.strip() for l in raw.splitlines() if l.strip()]
-        title = lines[0][:100] if lines else "Новый пост"
+    topic = random.choice(TOPICS)
+    print(f"Selected topic: {topic}")
 
-    # Убираем обёртку html/body если API вернул целую страницу
-    content = raw
-    if "<html" in content.lower():
-        body = re.search(r'<body[^>]*>(.*?)</body>', content, re.IGNORECASE | re.DOTALL)
-        if body:
-            content = body.group(1)
-        content = re.sub(r'</?(html|head|body|!doctype)[^>]*>', '', content, flags=re.IGNORECASE)
+    print("Generating content...")
+    content = generate_content(topic)
+    print("Generating title...")
+    title = generate_title_from_content(content)
 
-    # ⚠️ ВАЖНО: замену \n делаем ЗДЕСЬ, а не внутри f-string
-    content_br = content.replace('\n', '<br>\n')
-    date_str = datetime.now().strftime("%Y-%m-%d")
-    time_str = datetime.now().strftime("%H:%M")
-    filename = f"{date_str}-{make_filename(title)}.html"
+    slug = slugify(title)
+    date_str = datetime.now().strftime("%Y-%m-%d-%H%M")
+    filename = f"{date_str}-{slug}.html"
 
-    # HTML поста — здесь внутри {} НЕТ бэкслэшей
     post_html = f"""<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{title}</title>
-    <style>
-        body {{ font-family: system-ui, sans-serif; max-width: 700px; margin: 40px auto; padding: 0 20px; line-height: 1.6; color: #333; }}
-        h1 {{ color: #111; }}
-        .meta {{ color: #777; font-size: 0.9em; margin-bottom: 20px; }}
-        a {{ color: #0066cc; }}
-    </style>
+    <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
-    <a href="index.html">← На главную</a>
-    <h1>{title}</h1>
-    <div class="meta">{date_str} {time_str}</div>
-    <div class="content">
-{content_br}
-    </div>
+    <header>
+        <h1>{title}</h1>
+        <p class="meta">Опубликовано: {datetime.now().strftime('%d.%m.%Y')}</p>
+    </header>
+    <main>
+        {content}
+    </main>
+    <footer>
+        <p><a href="index.html">← На главную</a></p>
+    </footer>
 </body>
 </html>"""
 
-    Path(filename).write_text(post_html, encoding="utf-8")
-    print(f"Created: {filename}")
-    update_index(title, filename, date_str)
+    with open(filename, "w", encoding="utf-8") as f:
+        f.write(post_html)
+    print(f"Created post: {filename}")
+    update_index(filename, title, datetime.now().strftime('%d.%m.%Y'))
     return True
 
-def update_index(title, filename, date_str):
-    idx = Path("index.html")
+def update_index(post_filename, title, date_str):
     posts = []
+    for f in sorted(Path(".").glob("20*.html"), reverse=True):
+        posts.append((f.name, f.stem))
 
-    if idx.exists():
-        text = idx.read_text(encoding="utf-8")
-        found = re.findall(r'<li><a href="([^"]+)">([^<]+)</a> - ([^<]+)</li>', text)
-        for href, t, d in found:
-            posts.append({"file": href, "title": t, "date": d})
-
-    posts.insert(0, {"file": filename, "title": title, "date": date_str})
-    posts = posts[:50]  # храним последние 50
-
-    lines = []
-    for p in posts:
-        safe = p['title'].replace('"', '&quot;')
-        lines.append(f'        <li><a href="{p["file"]}">{safe}</a> — {p["date"]}</li>')
-
-    list_html = "\n".join(lines)
+    list_items = "".join([
+        f'<li><a href="{fn}">{title}</a> — {date_str}</li>\n'
+        for fn, title in posts
+    ])
 
     index_html = f"""<!DOCTYPE html>
 <html lang="ru">
@@ -129,25 +180,19 @@ def update_index(title, filename, date_str):
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AutoSite</title>
-    <style>
-        body {{ font-family: system-ui, sans-serif; max-width: 700px; margin: 40px auto; padding: 0 20px; color: #333; }}
-        h1 {{ color: #111; }}
-        ul {{ list-style: none; padding: 0; }}
-        li {{ padding: 10px 0; border-bottom: 1px solid #eee; }}
-        a {{ text-decoration: none; color: #0066cc; font-size: 1.1em; }}
-        a:hover {{ text-decoration: underline; }}
-    </style>
+    <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
     <h1>AutoSite</h1>
     <p>Последние посты:</p>
     <ul>
-{list_html}
+        {list_items}
     </ul>
 </body>
 </html>"""
 
-    idx.write_text(index_html, encoding="utf-8")
+    with open("index.html", "w", encoding="utf-8") as f:
+        f.write(index_html)
     print("Updated index.html")
 
 if __name__ == "__main__":
